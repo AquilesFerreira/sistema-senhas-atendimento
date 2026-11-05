@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Senhas</title>
+
+<!-- Vue 3 e Tailwind CSS via CDN, versões fixas, sem npm e sem build -->
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+<script src="https://cdn.tailwindcss.com/3.4.1"></script>
+<link rel="stylesheet" href="/estilo.css">
+</head>
+<body class="min-h-screen text-cyan-100 font-mono uppercase tracking-wide">
+<div class="scanline"></div>
+
+<div id="app">
+
+  <div v-if="!estado" class="flex items-center justify-center min-h-screen text-cyan-400 text-sm tracking-widest pulse-soft">
+    Conectando ao servidor...
+  </div>
+
+  <div v-else class="relative max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-10">
+
+    <!-- cabeçalho -->
+    <header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-[0.3em] text-cyan-200">Sistema de Senhas</h1>
+        <p class="text-[11px] sm:text-xs tracking-[0.25em] text-cyan-500/60 mt-1">Painel de monitoramento em tempo real</p>
+      </div>
+      <div class="text-left sm:text-right">
+        <p class="text-[10px] tracking-widest text-cyan-500/60">Rodada</p>
+        <p class="text-xl font-bold text-cyan-200">{{ String(estado.rodada).padStart(3, '0') }}</p>
+        <p class="text-xs font-bold tracking-widest mt-1"
+           :class="terminou ? 'text-amber-300' : 'text-cyan-300 pulse-soft'">
+          {{ terminou ? 'Encerrado' : 'Em andamento' }}
+        </p>
+      </div>
+    </header>
+
+    <!-- fila / próximas senhas / resumo -->
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+      <!-- fila com anéis animados -->
+      <div class="glow-border rounded-xl bg-black/30 p-5 flex flex-col items-center justify-center">
+        <p class="text-[10px] tracking-widest text-cyan-500/60 mb-3">Pessoas na fila</p>
+        <div class="relative w-32 h-32">
+          <svg viewBox="0 0 120 120" class="w-full h-full -rotate-90">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(34,211,238,0.15)" stroke-width="2" />
+            <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(34,211,238,0.85)" stroke-width="2"
+                    stroke-linecap="round" stroke-dasharray="46 280" class="ring-spin" />
+            <circle cx="60" cy="60" r="44" fill="none" stroke="rgba(251,146,60,0.55)" stroke-width="1.5"
+                    stroke-linecap="round" stroke-dasharray="20 256" class="ring-spin-rev" />
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-3xl font-bold text-cyan-200">{{ fila.total }}</span>
+            <span class="text-[9px] text-cyan-500/70 tracking-widest">total</span>
+          </div>
+        </div>
+        <div class="flex justify-center gap-6 mt-4 text-xs tracking-widest">
+          <span class="text-cyan-300">N <b>{{ fila.normais }}</b></span>
+          <span class="text-orange-400">P <b>{{ fila.prioritarias }}</b></span>
+        </div>
+      </div>
+
+      <!-- próximas 2 senhas -->
+      <div class="glow-border rounded-xl bg-black/30 p-5">
+        <p class="text-[10px] tracking-widest text-cyan-500/60 mb-3 text-center">Próximas senhas</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div v-for="(codigo, i) in proximas" :key="i"
+               class="rounded-lg p-3 text-center border"
+               :class="tipoSenha(codigo) === 'prioritaria' ? 'border-orange-400/50 shadow-[0_0_16px_rgba(251,146,60,0.25)]' : 'border-cyan-400/40'">
+            <p class="text-[9px] text-cyan-500/60 tracking-widest mb-1">{{ i === 0 ? '1ª' : '2ª' }}</p>
+            <p class="text-2xl font-bold"
+               :class="!codigo ? 'text-gray-600' : (tipoSenha(codigo) === 'prioritaria' ? 'text-orange-400' : 'text-cyan-300')">
+              {{ codigo || '---' }}
+            </p>
+          </div>
+        </div>
+        <p class="mt-4 text-center text-[11px] text-cyan-400/80 tracking-widest leading-relaxed">
+          <template v-if="!proximas[0]">Ninguém aguardando</template>
+          <template v-else-if="estado.postoProximaSenha === null">Aguarde, todos os postos ocupados</template>
+          <template v-else>Vai para o posto {{ estado.postoProximaSenha }}</template>
+        </p>
+      </div>
+
+      <!-- resumo -->
+      <div class="glow-border rounded-xl bg-black/30 p-5 flex flex-col gap-4 justify-center">
+        <div class="flex items-center justify-between">
+          <span class="text-xs tracking-widest text-cyan-400/70">Atendidas</span>
+          <span class="text-2xl font-bold text-cyan-200">{{ estado.atendidas }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs tracking-widest text-orange-400/70">Desistências</span>
+          <span class="text-2xl font-bold text-orange-300">{{ estado.desistencias }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- postos -->
+    <section class="glow-border rounded-xl bg-black/20 p-4 sm:p-5 mb-6">
+      <p class="text-[10px] tracking-widest text-cyan-500/60 mb-3">Postos de atendimento</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div v-for="posto in postos" :key="posto.numero"
+             class="rounded-lg p-4 bg-black/30 text-center border transition-all duration-300"
+             :class="{
+               'border-cyan-400/60 shadow-[0_0_16px_rgba(34,211,238,0.25)]': estadoPosto(posto) === 'livre',
+               'border-amber-400/70 shadow-[0_0_18px_rgba(251,191,36,0.3)]': estadoPosto(posto) === 'ocupado',
+               'border-gray-700/60 opacity-40': estadoPosto(posto) === 'inativo'
+             }">
+          <p class="text-[9px] tracking-widest text-cyan-500/60">Posto</p>
+          <p class="text-2xl font-bold mb-1" :class="estadoPosto(posto) === 'inativo' ? 'text-gray-600' : 'text-cyan-100'">
+            {{ posto.numero }}
+          </p>
+          <transition name="posto" mode="out-in">
+            <p :key="estadoPosto(posto)" class="text-[11px] font-bold tracking-widest"
+               :class="{
+                 'text-cyan-300': estadoPosto(posto) === 'livre',
+                 'text-amber-300': estadoPosto(posto) === 'ocupado',
+                 'text-gray-500': estadoPosto(posto) === 'inativo'
+               }">
+              {{ estadoPosto(posto) }}
+            </p>
+          </transition>
+          <p v-if="posto.senhaAtual" class="mt-2 text-sm font-bold"
+             :class="tipoSenha(posto.senhaAtual) === 'prioritaria' ? 'text-orange-400' : 'text-amber-200'">
+            {{ posto.senhaAtual }}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- controles -->
+    <section class="flex flex-wrap gap-3 justify-center mb-6">
+      <button :class="botaoClasse" :disabled="terminou || carregando" @click="proximaRodada">
+        Próxima rodada
+      </button>
+      <button :class="[botaoClasse, jogando ? 'border-amber-400/70 text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.3)]' : '']"
+              :disabled="terminou" @click="alternarPlay">
+        {{ jogando ? 'Pause' : 'Play' }}
+      </button>
+      <button :class="botaoClasse" @click="reiniciar">
+        Reiniciar
+      </button>
+      <button :class="botaoClasse" :disabled="terminou || carregando" @click="alternarPosto(4)">
+        {{ posto4 && posto4.ativo ? 'Desligar posto 4' : 'Ligar posto 4' }}
+      </button>
+      <button :class="botaoClasse" :disabled="terminou || carregando" @click="alternarPosto(5)">
+        {{ posto5 && posto5.ativo ? 'Desligar posto 5' : 'Ligar posto 5' }}
+      </button>
+    </section>
+
+    <!-- log da rodada, estilo terminal -->
+    <section class="glow-border rounded-xl bg-black/40 p-4 mb-6">
+      <p class="text-[10px] tracking-widest text-cyan-500/60 mb-2">Log da rodada {{ String(estado.rodada).padStart(3, '0') }}</p>
+      <div class="h-40 overflow-y-auto text-xs sm:text-sm leading-relaxed space-y-1 pr-1 normal-case">
+        <p v-if="!estado.mensagensUltimaRodada.length" class="text-cyan-700/60 italic">
+          // sem eventos nesta rodada
+        </p>
+        <p v-for="(linha, i) in estado.mensagensUltimaRodada" :key="i" :class="corLinhaLog(linha)">
+          {{ linha.trim() }}
+        </p>
+      </div>
+    </section>
+
+    <!-- resultado final -->
+    <section v-if="terminou" class="glow-border rounded-xl bg-black/40 p-5 border-amber-400/50">
+      <p class="text-center text-xs tracking-widest text-amber-300 mb-4">
+        // Atendimento encerrado — {{ estado.atendidasOrdem.length }} senhas, da última para a primeira //
+      </p>
+      <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-64 overflow-y-auto">
+        <div v-for="(codigo, i) in estado.atendidasOrdem" :key="i"
+             class="rounded border px-2 py-1 text-center text-xs"
+             :class="tipoSenha(codigo) === 'prioritaria' ? 'border-orange-400/50 text-orange-300' : 'border-cyan-400/40 text-cyan-300'">
+          <span class="block text-[8px] text-cyan-500/50">{{ estado.atendidasOrdem.length - i }}º</span>
+          {{ codigo }}
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

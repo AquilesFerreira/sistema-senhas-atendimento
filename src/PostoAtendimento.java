@@ -1,6 +1,5 @@
-/*Um guichê. Pode estar ativo ou inativo e, quando ativo, livre ou ocupado.
- Postos fixos (os 3 primeiros) nunca são desativados.
- */
+//Um guichê. Pode estar ativo ou inativo e, quando ativo, livre ou ocupado. Postos fixos (os 3 primeiros) nunca são desativados.
+
 public class PostoAtendimento {
     private final int numero;
     private final boolean fixo;

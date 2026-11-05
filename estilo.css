@@ -1,0 +1,51 @@
+/* grid sutil de fundo, estilo HUD */
+body {
+  background-color: #050708;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.07) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+/* painel translúcido com borda fina em ciano e glow */
+.glow-border {
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  box-shadow: 0 0 1px rgba(34, 211, 238, 0.45), inset 0 0 18px rgba(34, 211, 238, 0.08), 0 0 22px rgba(34, 211, 238, 0.08);
+}
+
+/* linha de scan passando devagar pela tela */
+.scanline {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: -160px;
+  height: 160px;
+  background: linear-gradient(to bottom, transparent, rgba(34, 211, 238, 0.09), transparent);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  animation: scan 9s linear infinite;
+  z-index: 50;
+}
+@keyframes scan {
+  0%   { top: -160px; }
+  100% { top: 100%; }
+}
+
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+.ring-spin     { animation: ring-spin 7s linear infinite; }
+.ring-spin-rev { animation: ring-spin 11s linear infinite reverse; }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .5; }
+}
+.pulse-soft { animation: pulse-soft 2.2s ease-in-out infinite; }
+
+/* pequena animação quando o status de um posto muda */
+.posto-enter-active, .posto-leave-active { transition: all .3s ease; }
+.posto-enter-from  { opacity: 0; transform: scale(.8); }
+.posto-leave-to    { opacity: 0; transform: scale(.8); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(34, 211, 238, .4); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }

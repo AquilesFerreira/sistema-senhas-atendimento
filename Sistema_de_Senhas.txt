@@ -1,0 +1,146 @@
+SISTEMA DE SENHAS DE ATENDIMENTO
+
+ALUNO: Aquiles José Ferreira Neto
+================================
+
+Simulação de um sistema de senhas de atendimento em Java puro, com fila
+prioritária (regra 2N:1P), pilha de senhas atendidas e postos de atendimento
+que podem ser ativados e desativados. As estruturas de dados (fila e pilha)
+foram implementadas do zero, sem usar as coleções prontas do Java.
+
+O projeto tem duas saídas para a mesma lógica:
+  - Console: a simulação roda inteira no terminal.
+  - Web: um painel em Vue 3 + Tailwind, servido por um servidor HTTP nativo
+    do Java (sem Spring e sem bibliotecas externas).
+
+
+1. COMO RODAR
+-------------
+Na pasta do projeto (onde ficam src/ e index.html), compile:
+
+    javac -d out src/*.java
+
+Modo console:
+    java -cp out App        (pausa de 800 ms entre rodadas)
+    java -cp out App 0      (sem pausa)
+
+Modo web:
+    java -cp out Servidor
+    Depois abra http://localhost:8080 no navegador.
+
+Obs.: rode o Servidor a partir da pasta do projeto, para ele encontrar os
+arquivos index.html, estilo.css e app.js.
+
+
+2. ESTRUTURA DAS CLASSES
+------------------------
+App e Servidor são as duas portas de entrada. Os dois usam a Simulacao, que
+por sua vez usa:
+  - FilaPrioritaria  -> formada por duas Fila<Senha> (uma de N, uma de P)
+  - GerenciadorPostos -> controla 5 PostoAtendimento
+  - Pilha<Senha>     -> guarda as senhas atendidas
+
+Fila e Pilha usam a classe Node<E>. Senha usa o enum TipoSenha.
+
+Node<E>
+    Nó com o elemento guardado e a referência para o próximo nó (next).
+
+Fila<E>
+    Fila FIFO (o primeiro a entrar é o primeiro a sair). enfileirar coloca no
+    fim e desenfileirar tira do início, os dois em O(1). Tem o método remover,
+    usado nas desistências.
+
+Pilha<E>
+    Pilha LIFO (o último a entrar é o primeiro a sair). empilhar e desempilhar
+    acontecem no topo, em O(1). O método paraVetor lê a pilha sem desempilhar.
+
+TipoSenha
+    Enum com os dois tipos possíveis: NORMAL (N) e PRIORITARIA (P).
+
+Senha
+    Tipo + número. É exibida no formato N007, P003.
+
+FilaPrioritaria
+    Duas filas comuns e um contador. O método chamar aplica a regra 2N:1P e o
+    método previsao mostra as próximas senhas sem tirar ninguém da fila.
+
+PostoAtendimento
+    Representa um guichê: ativo/inativo, livre/ocupado e o tempo que falta
+    para terminar o atendimento atual.
+
+GerenciadorPostos
+    Controla os 5 postos. Os postos 1 a 3 são fixos; o 4 e o 5 podem ser
+    ativados e desativados.
+
+Simulacao
+    O "relógio" do sistema: executa as rodadas, faz os sorteios, exibe o
+    painel e monta o estado em JSON para o painel web.
+
+App
+    Entrada do modo console.
+
+Servidor
+    Entrada do modo web, usando com.sun.net.httpserver.HttpServer.
+
+
+3. REGRAS IMPLEMENTADAS
+-----------------------
+- Tipos de senha: normal (N) e prioritária (P).
+- Regra 2N:1P: a cada 2 senhas normais chamadas, 1 prioritária. Se uma das
+  filas estiver vazia, a outra é chamada normalmente. Se houver senha P
+  esperando no início, ela é a primeira a ser chamada.
+- Postos: até 5. Os postos 1, 2 e 3 ficam sempre ativos; o 4 e o 5 ligam e
+  desligam durante a simulação. Um posto só é desligado se estiver livre.
+- Senhas atendidas: são empilhadas no momento em que são chamadas a um posto,
+  mantendo a ordem de atendimento.
+- Desistência: a cada rodada há uma chance de um cliente que está esperando
+  ir embora. Ele é removido da fila.
+- Encerramento: após 20 rodadas param as chegadas de clientes. A simulação
+  termina quando a fila e os postos ficam vazios, e as senhas atendidas são
+  exibidas da última para a primeira.
+
+Como o tempo funciona:
+Cada rodada representa uma unidade de tempo (pense em 1 minuto). Em cada
+rodada:
+  1. os postos descontam 1 do tempo de atendimento e liberam quem terminou;
+  2. chegam de 0 a 3 clientes (30% de chance de cada um ser prioritário);
+  3. pode haver uma desistência (15% de chance);
+  4. o posto 4 ou 5 pode ligar ou desligar (10% de chance);
+  5. os postos livres chamam as próximas senhas (cada atendimento dura de
+     2 a 6 rodadas);
+  6. o painel é exibido.
+
+Esses valores são constantes no topo da classe Simulacao e podem ser
+ajustados.
+
+
+4. PAINEL EXIBIDO A CADA RODADA
+-------------------------------
+- Número total de pessoas na fila (com quantas N e quantas P)
+- As próximas duas senhas a serem chamadas
+- Para qual posto a próxima senha deve se dirigir
+- Status de cada posto (Livre / Ocupado / Inativo)
+- Número de senhas atendidas e de desistências
+
+
+5. PAINEL WEB
+-------------
+Rotas do Servidor:
+    GET  /                       página do painel (index.html, estilo.css, app.js)
+    GET  /estado                 estado atual da simulação em JSON
+    POST /rodada                 executa uma rodada
+    POST /postos/{n}/alternar    liga ou desliga o posto 4 ou 5
+    POST /reiniciar              começa uma simulação nova
+
+Na página há os botões Próxima rodada, Play/Pause (uma rodada por segundo),
+Reiniciar e ligar/desligar os postos 4 e 5. Ao final, aparece a grade com as
+senhas atendidas da última para a primeira.
+
+O front usa Vue 3 e Tailwind CSS via CDN, sem npm e sem build. O JSON é
+montado manualmente no Java, sem bibliotecas.
+
+
+6. TECNOLOGIAS
+--------------
+- Java (sem frameworks e sem bibliotecas externas)
+- Vue 3 e Tailwind CSS (via CDN)

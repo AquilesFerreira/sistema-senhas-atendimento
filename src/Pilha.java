@@ -34,6 +34,19 @@ public class Pilha<E> {
         return topo == null;
     }
 
+    //Vetor do topo até a base, sem desempilhar (não altera a pilha)
+    public Object[] paraVetor() {
+        Object[] vetor = new Object[tamanho];
+        Node<E> atual = topo;
+        int i = 0;
+        while (atual != null) {
+            vetor[i] = atual.getElemento();
+            i++;
+            atual = atual.getNext();
+        }
+        return vetor;
+    }
+
     @Override
     public String toString() {
         String texto = "[";

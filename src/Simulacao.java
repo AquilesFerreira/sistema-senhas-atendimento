@@ -83,6 +83,100 @@ public class Simulacao {
         return mensagensRodada;
     }
 
+    /** Liga ou desliga manualmente um posto opcional (4 ou 5). Usado pelo front web. */
+    public void alternarPosto(int numero) {
+        String aviso = postos.alternar(numero);
+        if (aviso != null) {
+            System.out.println("  * " + aviso);
+        }
+    }
+
+    /**
+     * Monta o estado atual em JSON, montado à mão com String (sem bibliotecas),
+     * para um front web consumir.
+     */
+    public String estadoJson() {
+        Senha[] proximas = fila.previsao(2);
+        PostoAtendimento destino = postos.primeiroDisponivel();
+        boolean acabou = terminou();
+
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+
+        json.append("\"rodada\":").append(rodada).append(",");
+
+        json.append("\"fila\":{")
+                .append("\"total\":").append(fila.tamanho()).append(",")
+                .append("\"normais\":").append(fila.quantidadeNormais()).append(",")
+                .append("\"prioritarias\":").append(fila.quantidadePrioritarias())
+                .append("},");
+
+        json.append("\"proximasSenhas\":[")
+                .append(jsonSenha(proximas[0])).append(",")
+                .append(jsonSenha(proximas[1]))
+                .append("],");
+
+        json.append("\"postoProximaSenha\":")
+                .append(destino == null ? "null" : destino.getNumero())
+                .append(",");
+
+        json.append("\"postos\":[");
+        PostoAtendimento[] todosOsPostos = postos.getPostos();
+        for (int i = 0; i < todosOsPostos.length; i++) {
+            PostoAtendimento posto = todosOsPostos[i];
+            json.append("{")
+                    .append("\"numero\":").append(posto.getNumero()).append(",")
+                    .append("\"ativo\":").append(posto.isAtivo()).append(",")
+                    .append("\"ocupado\":").append(posto.estaOcupado()).append(",")
+                    .append("\"senhaAtual\":").append(jsonSenha(posto.getSenhaAtual()))
+                    .append("}");
+            if (i < todosOsPostos.length - 1) {
+                json.append(",");
+            }
+        }
+        json.append("],");
+
+        json.append("\"atendidas\":").append(atendidas.tamanho()).append(",");
+        json.append("\"desistencias\":").append(desistencias).append(",");
+
+        json.append("\"mensagensUltimaRodada\":[");
+        for (int i = 0; i < mensagensRodada.size(); i++) {
+            json.append(jsonTexto(mensagensRodada.get(i)));
+            if (i < mensagensRodada.size() - 1) {
+                json.append(",");
+            }
+        }
+        json.append("],");
+
+        json.append("\"terminou\":").append(acabou);
+
+        // Só manda a lista de atendidas quando a simulação já encerrou.
+        if (acabou) {
+            json.append(",\"atendidasOrdem\":[");
+            Object[] daUltimaParaAPrimeira = atendidas.paraVetor();
+            for (int i = 0; i < daUltimaParaAPrimeira.length; i++) {
+                json.append(jsonSenha((Senha) daUltimaParaAPrimeira[i]));
+                if (i < daUltimaParaAPrimeira.length - 1) {
+                    json.append(",");
+                }
+            }
+            json.append("]");
+        }
+
+        json.append("}");
+        return json.toString();
+    }
+
+    /** Senha como valor JSON: o código entre aspas (ex.: "N001"), ou null se não existir. */
+    private String jsonSenha(Senha senha) {
+        return senha == null ? "null" : jsonTexto(senha.toString());
+    }
+
+    /** Texto como valor JSON: entre aspas, escapando aspas e barras internas. */
+    private String jsonTexto(String texto) {
+        return "\"" + texto.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
     private void chegadaDeClientes() {
         int quantos = sortear(0, MAX_CHEGADAS_POR_RODADA);
         for (int i = 0; i < quantos; i++) {
