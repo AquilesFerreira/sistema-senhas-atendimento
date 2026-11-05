@@ -1,12 +1,19 @@
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * O "relógio" do sistema. Cada rodada:
+ * O "relógio" do sistema. Cada rodada (método executarRodada()):
  *   1. postos terminam atendimentos
  *   2. chegam clientes novos (aleatório)
  *   3. alguém pode desistir (aleatório)
  *   4. postos opcionais podem ligar/desligar (aleatório)
  *   5. postos livres chamam a próxima senha (regra 2N:1P)
  *   6. mostra o painel
- * Encerra quando para de chegar gente e a fila e os postos esvaziam.
+ * Encerra quando para de chegar gente e a fila e os postos esvaziam (terminou()).
+ *
+ * A classe foi pensada para também ser usada por um front web: por isso
+ * executarRodada() e terminou() são públicos, e as mensagens de cada rodada
+ * ficam guardadas em uma lista (além de serem impressas no console).
  */
 public class Simulacao {
     // ---- parâmetros da simulação (mexa à vontade) ----
@@ -28,6 +35,10 @@ public class Simulacao {
     private int rodada = 0;
     private final long pausaMs;
 
+    // Mensagens (chegadas, desistências, chamadas) da rodada que acabou de rodar.
+    // Fica guardada aqui para um front web poder ler depois de chamar executarRodada().
+    private List<String> mensagensRodada = new ArrayList<>();
+
     public Simulacao(long pausaMs) {
         this.pausaMs = pausaMs;
     }
@@ -36,26 +47,40 @@ public class Simulacao {
         System.out.println("=== SISTEMA DE SENHAS: INÍCIO DO ATENDIMENTO ===");
 
         while (!terminou()) {
-            rodada++;
-            System.out.println("\n----------------- RODADA " + rodada + " -----------------");
-
-            postos.passarRodada();
-            if (rodada <= RODADAS_COM_CHEGADA) {
-                chegadaDeClientes();
-            }
-            desistenciaAleatoria();
-            alternarPostoAleatorio();
-            chamarSenhas();
-            exibirPainel();
+            executarRodada();
             pausar();
         }
 
         encerrar();
     }
 
+    /**
+     * Executa uma única rodada da simulação (um "tick" do relógio).
+     * Pode ser chamado direto por um front web, uma rodada por vez.
+     */
+    public void executarRodada() {
+        rodada++;
+        mensagensRodada = new ArrayList<>(); // começa a lista da rodada atual zerada
+        System.out.println("\n----------------- RODADA " + rodada + " -----------------");
+
+        postos.passarRodada();
+        if (rodada <= RODADAS_COM_CHEGADA) {
+            chegadaDeClientes();
+        }
+        desistenciaAleatoria();
+        alternarPostoAleatorio();
+        chamarSenhas();
+        exibirPainel();
+    }
+
     /** Fim: ninguém mais chega, fila vazia e postos livres. */
-    private boolean terminou() {
+    public boolean terminou() {
         return rodada >= RODADAS_COM_CHEGADA && fila.estaVazia() && postos.todosLivres();
+    }
+
+    /** Mensagens (chegadas, desistências, chamadas) geradas na última rodada executada. */
+    public List<String> getMensagensRodada() {
+        return mensagensRodada;
     }
 
     private void chegadaDeClientes() {
@@ -68,7 +93,7 @@ public class Simulacao {
                 senha = new Senha(TipoSenha.NORMAL, proximoNormal++);
             }
             fila.entrar(senha);
-            System.out.println("  + Chegou cliente: retirou a senha " + senha);
+            registrarMensagem("  + Chegou cliente: retirou a senha " + senha);
         }
     }
 
@@ -79,7 +104,7 @@ public class Simulacao {
         Senha desistente = fila.sortearEsperando();
         if (desistente != null && fila.desistir(desistente)) {
             desistencias++;
-            System.out.println("  - Desistência: a senha " + desistente + " foi embora.");
+            registrarMensagem("  - Desistência: a senha " + desistente + " foi embora.");
         }
     }
 
@@ -91,7 +116,7 @@ public class Simulacao {
         int numero = sortear(GerenciadorPostos.MINIMO_ATIVOS + 1, GerenciadorPostos.TOTAL_POSTOS);
         String aviso = postos.alternar(numero);
         if (aviso != null) {
-            System.out.println("  * " + aviso);
+            registrarMensagem("  * " + aviso);
         }
     }
 
@@ -102,7 +127,7 @@ public class Simulacao {
             Senha senha = fila.chamar();
             posto.atender(senha, sortear(DURACAO_MIN, DURACAO_MAX));
             atendidas.empilhar(senha);
-            System.out.println("  > Chamando senha " + senha + " -> Posto " + posto.getNumero());
+            registrarMensagem("  > Chamando senha " + senha + " -> Posto " + posto.getNumero());
             posto = postos.primeiroDisponivel();
         }
     }
@@ -145,6 +170,12 @@ public class Simulacao {
     }
 
     // ---- utilitários ----
+
+    /** Guarda a mensagem na lista da rodada atual e também imprime no console. */
+    private void registrarMensagem(String mensagem) {
+        mensagensRodada.add(mensagem);
+        System.out.println(mensagem);
+    }
 
     /** Número inteiro aleatório entre min e max (inclusive). */
     private int sortear(int min, int max) {
